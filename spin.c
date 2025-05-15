@@ -11,7 +11,7 @@
 #define SPEED_LIMIT 100.0f
 
 const Vector2 center = { WINDOW_SIZE / 2.f, WINDOW_SIZE / 2.f };
-const Vector2 gravity = { 0.0f, 100.0f };
+const Vector2 gravity = { 0.0f, 150.0f };
 
 typedef struct {
     float start;
@@ -28,6 +28,7 @@ typedef struct {
     float radius;
     float mass;
     Color color;
+    bool bounced;
 } Ball;
 
 Vector2 vector2mul(Vector2 vec1, Vector2 vec2) {
@@ -76,7 +77,7 @@ float distance(Vector2 vec1, Vector2 vec2) {
 }
 
 void draw_ring(Ring ring) {
-    DrawRing(ring.center, ring.inner_r, ring.outer_r, ring.start, ring.end, 0, BLACK);
+    DrawRing(ring.center, ring.inner_r, ring.outer_r, ring.start, ring.end, 0, GRAY);
 }
 
 void draw_ball(Ball ball) {
@@ -108,7 +109,7 @@ bool check_collision(Ball ball, Ring ring) {
 
 Ring *generate_rings(int n) {
     Ring *rings_arr = (Ring *)malloc(n * sizeof(Ring));
-    float init_vel = 5;
+    float init_vel = 10;
     float inner_r = 70;
     float outer_r = 65;
     for (int i = 0; i < n; i++) {
@@ -125,11 +126,12 @@ void update_color(Ball *ball) {
     ball->color.b = GetRandomValue(0, 255);
 }
 
-void update_ball(Ball *ball, Ring *rings, int n, float dt) {
+void update_ball(Ball *ball, Ring *rings, int rings_n, float dt) {
+    ball->bounced = false;
+    ball->vel = vector2add(ball->vel, vector2scale(gravity, dt));
     Vector2 next_pos = vector2add(ball->pos, vector2scale(ball->vel, dt));
-    bool bounced = false;
 
-    for (int i = 0; i < n; i++) {
+    for (int i = 0; i < rings_n; i++) {
         Ball test_ball = *ball;
         test_ball.pos = next_pos;
         if (check_collision(test_ball, rings[i])) {
@@ -137,41 +139,54 @@ void update_ball(Ball *ball, Ring *rings, int n, float dt) {
             Vector2 normal = vector2normalize(to_ball);
             ball->vel = vector2reflect(ball->vel, normal);
             update_color(ball);
-            bounced = true;
-            break;
+            ball->bounced = true;
+            return;
         }
     }
 
-    if (!bounced) {
-        ball->vel = vector2add(ball->vel, vector2scale(gravity, dt));
-        ball->pos = next_pos;
-    }
+    ball->pos = next_pos;
 }
 
-int main(int argc, char **argv) {
+Ring *remove_ring(Ring *rings_arr, int *rings_n) {
+    for (int i = 0; i < *rings_n - 1; i++) rings_arr[i] = rings_arr[i + 1];
+    (*rings_n)--;
+    rings_arr = realloc(rings_arr, (*rings_n) * sizeof(Ring));
+    return rings_arr;
+}
+
+int main() {
     InitWindow(WINDOW_SIZE, WINDOW_SIZE, "Centrifuuuga");
     int rings_n = 9;
+    int balls_n = 1;
     Color ball_color = { 0, 10, 20, 255 };
     Ring *rings_arr = generate_rings(rings_n);
-    Ball ball = { center, (Vector2){ 15.0f, 15.0f }, 8, 5, ball_color };
+    Ball *balls_arr = (Ball *)malloc(balls_n * sizeof(Ball));
+    Ball ball = { center, (Vector2){ 10.0f, 10.0f }, 8, 10, ball_color, false };
+    balls_arr[0] = ball;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
-        ClearBackground(RAYWHITE);
+        ClearBackground(BLACK);
         BeginDrawing();
-        bool bounced = false;
-        draw_ball(ball);
 
-        Ball check_ball = ball;
-        check_ball.pos  = vector2add(check_ball.pos, vector2scale(ball.vel, dt));
+        for (int i = 0; i < balls_n; i++) {
+            draw_ball(balls_arr[i]);
+            update_ball(&balls_arr[i], rings_arr, rings_n, dt);
+        }
 
-        for (int i = 0; i < rings_n; i++) {
-            if (distance(ball.pos, center) > rings_arr[i].inner_r) {
-                for (int j = i; j < rings_n - 1; j++) rings_arr[j] = rings_arr[j + 1];
-                rings_n--;
-                rings_arr = realloc(rings_arr, rings_n * sizeof(Ring));
-                ball.vel = vector2scale(ball.vel, 1.2);
-                ball.radius *= 1.2;
+        for (int j = 0; j < balls_n; j++) {
+            int i = 0;
+            while (i < rings_n) {
+                if (distance(balls_arr[j].pos, center) > rings_arr[i].inner_r - balls_arr[j].radius) {
+                    rings_arr = remove_ring(rings_arr, &rings_n);
+                    balls_arr[j].radius *= 1.2f;
+                    balls_arr[j].vel = vector2scale(balls_arr[j].vel, 1.1f);
+                    balls_n++;
+                    balls_arr = realloc(balls_arr, balls_n * sizeof(Ball));
+                    balls_arr[balls_n - 1] = balls_arr[j];
+                } else {
+                    i++;
+                }
             }
         }
 
@@ -180,8 +195,6 @@ int main(int argc, char **argv) {
             spin_ring(&rings_arr[i], dt);
         }
         
-        update_ball(&ball, rings_arr, rings_n, dt);
-
         EndDrawing();
     }
     free(rings_arr);
