@@ -204,6 +204,13 @@ void add_ball(int *balls_n, int *rings_n, Ball **balls_arr, Ring **rings_arr) {
                 new_ball.pos.x += GetRandomValue(-10, 10);
                 new_ball.pos.y += GetRandomValue(-10, 10);
 
+                Vector2 dir = vector2subtract(new_ball.pos, (*balls_arr)[j].pos);
+                if (vector2length(dir) > 0.01f) {
+                    dir = vector2normalize(dir);
+                    Vector2 boost = vector2scale(dir, 100.0f); 
+                    new_ball.vel = vector2add(new_ball.vel, boost);
+                }
+
                 (*balls_arr)[*balls_n - 1] = new_ball;
                 *rings_arr = remove_ring(*rings_arr, rings_n);
                 (*balls_arr)[j].radius *= 1.2f;
@@ -220,7 +227,7 @@ void handle_ball_collisions(Ball *balls, int balls_n) {
     for (int i = 0; i < balls_n; i++) {
         for (int j = i + 1; j < balls_n; j++) {
             if (balls[i].spawn_cooldown <= 0 && balls[j].spawn_cooldown <= 0 &&
-                CheckCollisionCircles(balls[i].pos, balls[i].radius, balls[j].pos, balls[j].radius)) {
+                CheckCollisionCircles(balls[i].pos, balls[i].radius, balls[j].pos, balls[j].radius)) {  
                 elastic_collision(&balls[i], &balls[j]);
             }
         }
@@ -240,22 +247,28 @@ int main() {
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
+        float sub_dt = dt / SUBTICK;
         ClearBackground(BLACK);
         BeginDrawing();
 
-        decrease_cooldown(balls_arr, balls_n, dt);
-
-        handle_ball_collisions(balls_arr, balls_n);
-        add_ball(&balls_n, &rings_n, &balls_arr, &rings_arr);
+        for (int step = 0; step < SUBTICK; step++) {
+            decrease_cooldown(balls_arr, balls_n, sub_dt);
+            add_ball(&balls_n, &rings_n, &balls_arr, &rings_arr); 
+            for (int i = 0; i < balls_n; i++) {
+                update_ball(&balls_arr[i], rings_arr, rings_n, sub_dt);
+            }
+            for (int i = 0; i < rings_n; i++) {
+                spin_ring(&rings_arr[i], sub_dt);
+            }
+            handle_ball_collisions(balls_arr, balls_n);
+        }
 
         for (int i = 0; i < balls_n; i++) {
             draw_ball(balls_arr[i]);
-            update_ball(&balls_arr[i], rings_arr, rings_n, dt);
         }
 
         for (int i = 0; i < rings_n; i++) {
             draw_ring(rings_arr[i]);
-            spin_ring(&rings_arr[i], dt);
         }
         
         EndDrawing();
