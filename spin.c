@@ -1,17 +1,16 @@
 #include <math.h>
-#include <raylib.h>
-#include <stdio.h>
+#include "raylib.h"
 #include <stdlib.h>
 #include <math.h>
 #include <stdbool.h>
 
-#define WINDOW_SIZE 800
 #define START 0
 #define END 330
 #define SPEED_LIMIT 100.0f
+#define SIZE 800
 
-const Vector2 center = { WINDOW_SIZE / 2.f, WINDOW_SIZE / 2.f };
 const Vector2 gravity = { 0.0f, 150.0f };
+const Vector2 center = { SIZE / 2.0f, SIZE / 2.0f };
 
 typedef struct {
     float start;
@@ -155,7 +154,8 @@ Ring *remove_ring(Ring *rings_arr, int *rings_n) {
 }
 
 int main() {
-    InitWindow(WINDOW_SIZE, WINDOW_SIZE, "Centrifuuuga");
+    InitWindow(800, 800, "Centrifuuuga");
+    Vector2 center = { SIZE / 2.f, SIZE / 2.f };
     int rings_n = 9;
     int balls_n = 1;
     Color ball_color = { 0, 10, 20, 255 };
@@ -178,12 +178,12 @@ int main() {
             int i = 0;
             while (i < rings_n) {
                 if (distance(balls_arr[j].pos, center) > rings_arr[i].inner_r - balls_arr[j].radius) {
-                    rings_arr = remove_ring(rings_arr, &rings_n);
-                    balls_arr[j].radius *= 1.2f;
-                    balls_arr[j].vel = vector2scale(balls_arr[j].vel, 1.1f);
                     balls_n++;
                     balls_arr = realloc(balls_arr, balls_n * sizeof(Ball));
                     balls_arr[balls_n - 1] = balls_arr[j];
+                    rings_arr = remove_ring(rings_arr, &rings_n);
+                    balls_arr[j].radius *= 1.2f;
+                    balls_arr[j].vel = vector2scale(balls_arr[j].vel, 1.1f);
                 } else {
                     i++;
                 }
