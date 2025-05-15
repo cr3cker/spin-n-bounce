@@ -8,7 +8,6 @@
 #define WINDOW_SIZE 800
 #define START 0
 #define END 330
-#define RINGS_N 5
 #define SPEED_LIMIT 100.0f
 
 const Vector2 center = { WINDOW_SIZE / 2.f, WINDOW_SIZE / 2.f };
@@ -28,6 +27,7 @@ typedef struct {
     Vector2 vel;
     float radius;
     float mass;
+    Color color;
 } Ball;
 
 Vector2 vector2mul(Vector2 vec1, Vector2 vec2) {
@@ -69,12 +69,18 @@ Vector2 vector2subtract(Vector2 vec1, Vector2 vec2) {
     return (Vector2){ vec1.x - vec2.x, vec1.y - vec2.y };
 }
 
+float distance(Vector2 vec1, Vector2 vec2) {
+    float first = (vec1.x - vec2.x) * (vec1.x - vec2.x);
+    float second = (vec1.y - vec2.y) * (vec1.y - vec2.y);
+    return sqrtf(first + second);
+}
+
 void draw_ring(Ring ring) {
     DrawRing(ring.center, ring.inner_r, ring.outer_r, ring.start, ring.end, 0, BLACK);
 }
 
 void draw_ball(Ball ball) {
-    DrawCircleV(ball.pos, ball.radius, RED);
+    DrawCircleV(ball.pos, ball.radius, ball.color);
 }
 
 void spin_ring(Ring *ring, float dt) {
@@ -88,10 +94,10 @@ bool check_collision(Ball ball, Ring ring) {
     float ring_width = ring.outer_r - ring.inner_r;
     if (dist < ring.inner_r - ball.radius + ring_width || dist > ring.outer_r + ball.radius - ring_width) 
         return false;
-    float angle = atan2f(to_ball.y, to_ball.x) * (180.0 / PI); // wtf, need to google it
+    float angle = atan2f(to_ball.y, to_ball.x) * (180.0 / PI); 
     if (angle < 0) angle += 360.0f;
 
-    float start = fmodf(ring.start, 360.0f); // have no idea what this does
+    float start = fmodf(ring.start, 360.0f); 
     float end = fmodf(ring.end, 360.0f);
     if (start < 0) start += 360.0f;
     if (end < 0) end += 360.0f;
@@ -101,7 +107,7 @@ bool check_collision(Ball ball, Ring ring) {
 }
 
 Ring *generate_rings(int n) {
-    Ring *rings_arr = malloc(n * sizeof(Ring));
+    Ring *rings_arr = (Ring *)malloc(n * sizeof(Ring));
     float init_vel = 5;
     float inner_r = 70;
     float outer_r = 65;
@@ -111,6 +117,12 @@ Ring *generate_rings(int n) {
         outer_r += 40;
     }
     return rings_arr;
+}
+
+void update_color(Ball *ball) {
+    ball->color.r = GetRandomValue(0, 255);
+    ball->color.g = GetRandomValue(0, 255);
+    ball->color.b = GetRandomValue(0, 255);
 }
 
 void update_ball(Ball *ball, Ring *rings, int n, float dt) {
@@ -124,6 +136,7 @@ void update_ball(Ball *ball, Ring *rings, int n, float dt) {
             Vector2 to_ball = vector2subtract(ball->pos, rings[i].center);
             Vector2 normal = vector2normalize(to_ball);
             ball->vel = vector2reflect(ball->vel, normal);
+            update_color(ball);
             bounced = true;
             break;
         }
@@ -135,11 +148,13 @@ void update_ball(Ball *ball, Ring *rings, int n, float dt) {
     }
 }
 
-
 int main(int argc, char **argv) {
     InitWindow(WINDOW_SIZE, WINDOW_SIZE, "Centrifuuuga");
-    Ring *rings_arr = generate_rings(RINGS_N);
-    Ball ball = { center, (Vector2){ 15.0f, 15.0f }, 8, 5 };
+    int rings_n = 9;
+    Color ball_color = { 0, 10, 20, 255 };
+    Ring *rings_arr = generate_rings(rings_n);
+    Ball ball = { center, (Vector2){ 15.0f, 15.0f }, 8, 5, ball_color };
+
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
         ClearBackground(RAYWHITE);
@@ -150,15 +165,26 @@ int main(int argc, char **argv) {
         Ball check_ball = ball;
         check_ball.pos  = vector2add(check_ball.pos, vector2scale(ball.vel, dt));
 
-        for (int i = 0; i < RINGS_N; i++) {
+        for (int i = 0; i < rings_n; i++) {
+            if (distance(ball.pos, center) > rings_arr[i].inner_r) {
+                for (int j = i; j < rings_n - 1; j++) rings_arr[j] = rings_arr[j + 1];
+                rings_n--;
+                rings_arr = realloc(rings_arr, rings_n * sizeof(Ring));
+                ball.vel = vector2scale(ball.vel, 1.2);
+                ball.radius *= 1.2;
+            }
+        }
+
+        for (int i = 0; i < rings_n; i++) {
             draw_ring(rings_arr[i]);
             spin_ring(&rings_arr[i], dt);
         }
         
-        update_ball(&ball, rings_arr, RINGS_N, dt);
+        update_ball(&ball, rings_arr, rings_n, dt);
 
         EndDrawing();
     }
+    free(rings_arr);
     CloseWindow();
     return 0;
 }
