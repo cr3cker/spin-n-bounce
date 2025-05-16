@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <math.h>
 #include "raylib.h"
 #include <stdio.h>
@@ -110,6 +111,10 @@ bool check_collision(Ball ball, Ring ring) {
 
 Ring *generate_rings(int n) {
     Ring *rings_arr = (Ring *)malloc(n * sizeof(Ring));
+    if (rings_arr == NULL) {
+        fprintf(stderr, "Allocation failed.\n");
+        exit(1);
+    }
     float init_vel = 10;
     float inner_r = 70;
     float outer_r = 65;
@@ -152,7 +157,12 @@ void update_ball(Ball *ball, Ring *rings, int rings_n, float dt) {
 Ring *remove_ring(Ring *rings_arr, int *rings_n) {
     for (int i = 0; i < *rings_n - 1; i++) rings_arr[i] = rings_arr[i + 1];
     (*rings_n)--;
-    rings_arr = realloc(rings_arr, (*rings_n) * sizeof(Ring));
+    Ring *temp = realloc(rings_arr, (*rings_n) * sizeof(Ring));
+    if (temp == NULL && *rings_n > 0) {
+        fprintf(stderr, "Realloc failed for rings_arr.\n");
+        exit(1);
+    }
+    rings_arr = temp;
     return rings_arr;
 }
 
@@ -197,10 +207,15 @@ void add_ball(int *balls_n, int *rings_n, Ball **balls_arr, Ring **rings_arr) {
         while (i < *rings_n) {
             if (distance((*balls_arr)[j].pos, center) > (*rings_arr)[i].inner_r - (*balls_arr)[j].radius) {
                 (*balls_n)++;
-                *balls_arr = realloc(*balls_arr, (*balls_n) * sizeof(Ball));
+                Ball *temp = realloc(*balls_arr, (*balls_n) * sizeof(Ball));
+                if (temp == NULL) {
+                    fprintf(stderr, "Realloc failed for balls_arr.\n");
+                    exit(1);
+                }
+                *balls_arr = temp;
 
                 Ball new_ball = (*balls_arr)[j];
-                new_ball.spawn_cooldown = 1.0f;
+                new_ball.spawn_cooldown = 0.5f;
                 new_ball.pos.x += GetRandomValue(-10, 10);
                 new_ball.pos.y += GetRandomValue(-10, 10);
 
@@ -242,14 +257,16 @@ int main() {
     Color ball_color = { 0, 10, 20, 255 };
     Ring *rings_arr = generate_rings(rings_n);
     Ball *balls_arr = (Ball *)malloc(balls_n * sizeof(Ball));
-    Ball ball = { center, (Vector2){ 10.0f, 10.0f }, 8, 10, ball_color, false, 1.0f };
+    if (balls_arr == NULL) {
+        fprintf(stderr, "Allocation failed.\n");
+        exit(1);
+    }
+    Ball ball = { center, (Vector2){ 10.0f, 10.0f }, 8, 10, ball_color, false, 0.5f };
     balls_arr[0] = ball;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
         float sub_dt = dt / SUBTICK;
-        ClearBackground(BLACK);
-        BeginDrawing();
 
         for (int step = 0; step < SUBTICK; step++) {
             decrease_cooldown(balls_arr, balls_n, sub_dt);
@@ -263,6 +280,9 @@ int main() {
             handle_ball_collisions(balls_arr, balls_n);
         }
 
+        ClearBackground(BLACK);
+        BeginDrawing();
+
         for (int i = 0; i < balls_n; i++) {
             draw_ball(balls_arr[i]);
         }
@@ -274,6 +294,7 @@ int main() {
         EndDrawing();
     }
     free(rings_arr);
+    free(balls_arr);
     CloseWindow();
     return 0;
 }
