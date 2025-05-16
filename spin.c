@@ -7,7 +7,6 @@
 
 #define START 0
 #define END 330
-#define SPEED_LIMIT 100.0f
 #define SIZE 800
 #define SUBTICK 5
 
@@ -105,8 +104,8 @@ bool check_collision(Ball ball, Ring ring) {
     if (start < 0) start += 360.0f;
     if (end < 0) end += 360.0f;
 
-    if (start < end) return angle >= start && angle <= end;
-    return angle >= start || angle <= end;
+    if (start < end) return angle > start && angle < end;
+    return angle > start || angle < end;
 }
 
 Ring *generate_rings(int n) {
@@ -131,6 +130,7 @@ void update_color(Ball *ball) {
 void update_ball(Ball *ball, Ring *rings, int rings_n, float dt) {
     ball->bounced = false;
     ball->vel = vector2add(ball->vel, vector2scale(gravity, dt));
+
     Vector2 next_pos = vector2add(ball->pos, vector2scale(ball->vel, dt));
 
     for (int i = 0; i < rings_n; i++) {
@@ -207,7 +207,7 @@ void add_ball(int *balls_n, int *rings_n, Ball **balls_arr, Ring **rings_arr) {
                 Vector2 dir = vector2subtract(new_ball.pos, (*balls_arr)[j].pos);
                 if (vector2length(dir) > 0.01f) {
                     dir = vector2normalize(dir);
-                    Vector2 boost = vector2scale(dir, 100.0f); 
+                    Vector2 boost = vector2scale(dir, 150.0f); 
                     new_ball.vel = vector2add(new_ball.vel, boost);
                 }
 
